@@ -76,28 +76,33 @@ func (h *Client) InstallRelease(chstr, ns string, opts ...InstallOption) (*rls.I
 }
 
 // InstallReleaseFromChart installs a new chart and returns the release response.
+//从chart中安装release
 func (h *Client) InstallReleaseFromChart(chart *chart.Chart, ns string, opts ...InstallOption) (*rls.InstallReleaseResponse, error) {
 	// apply the install options
 	for _, opt := range opts {
 		opt(&h.opts)
 	}
-	req := &h.opts.instReq
+	req := &h.opts.instReq //release 名在这里指定
 	req.Chart = chart
 	req.Namespace = ns
 	req.DryRun = h.opts.dryRun
 	req.DisableHooks = h.opts.disableHooks
 	req.ReuseName = h.opts.reuseName
-	ctx := NewContext()
+	ctx := NewContext() //??
 
 	if h.opts.before != nil {
 		if err := h.opts.before(ctx, req); err != nil {
 			return nil, err
 		}
 	}
+
+	//如果调用Helm install时,使用--set传递了Values,如"haha=123",则req.Values的值为raw:"haha: 123\n"
+	//否则这里的值为raw:"{}\n"
 	err := chartutil.ProcessRequirementsEnabled(req.Chart, req.Values)
 	if err != nil {
 		return nil, err
 	}
+	//处理依赖?
 	err = chartutil.ProcessRequirementsImportValues(req.Chart)
 	if err != nil {
 		return nil, err

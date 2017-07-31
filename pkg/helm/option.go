@@ -174,6 +174,7 @@ func ValueOverrides(raw []byte) InstallOption {
 }
 
 // ReleaseName specifies the name of the release when installing.
+//release名
 func ReleaseName(name string) InstallOption {
 	return func(opts *options) {
 		opts.instReq.Name = name

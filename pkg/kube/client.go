@@ -125,6 +125,7 @@ func (c *Client) BuildUnstructured(namespace string, reader io.Reader) (Result, 
 	}
 
 	var result Result
+	//利用了kubectl?
 	b, err := c.NewUnstructuredBuilder(true)
 	if err != nil {
 		return result, err

@@ -101,22 +101,22 @@ charts in a repository, use 'helm search'.
 
 type installCmd struct {
 	name         string
-	namespace    string
+	namespace    string //release安装的目录
 	valueFiles   valueFiles
-	chartPath    string
-	dryRun       bool
+	chartPath    string //安装的chart名
+	dryRun       bool   //模拟安装
 	disableHooks bool
 	replace      bool
 	verify       bool
 	keyring      string
 	out          io.Writer
-	client       helm.Interface
+	client       helm.Interface //?
 	values       []string
-	nameTemplate string
+	nameTemplate string //???:
 	version      string
 	timeout      int64
-	wait         bool
-	repoURL      string
+	wait         bool   //等待所有的pod就绪
+	repoURL      string //安装的chart所在的repo
 	devel        bool
 
 	certFile string
@@ -163,12 +163,14 @@ func newInstallCmd(c helm.Interface, out io.Writer) *cobra.Command {
 				inst.version = ">0.0.0-a"
 			}
 
+			//定位chart的路径
 			cp, err := locateChartPath(inst.repoURL, args[0], inst.version, inst.verify, inst.keyring,
 				inst.certFile, inst.keyFile, inst.caFile)
 			if err != nil {
 				return err
 			}
 			inst.chartPath = cp
+			//创建新的helm client
 			inst.client = ensureHelmClient(inst.client)
 			return inst.run()
 		},
@@ -204,13 +206,16 @@ func (i *installCmd) run() error {
 		i.namespace = defaultNamespace()
 	}
 
+	//如果install参数中指定了--set或者--values, 提取覆盖的values并marshal
 	rawVals, err := vals(i.valueFiles, i.values)
 	if err != nil {
 		return err
 	}
 
 	// If template is specified, try to run the template.
+	//如果指定了release名的template模板,则解析该模板,获取指定的release名
 	if i.nameTemplate != "" {
+		//解析模板
 		i.name, err = generateName(i.nameTemplate)
 		if err != nil {
 			return err
@@ -225,6 +230,7 @@ func (i *installCmd) run() error {
 		return prettyError(err)
 	}
 
+	//加载依赖
 	if req, err := chartutil.LoadRequirements(chartRequested); err == nil {
 		// If checkDependencies returns an error, we have unfullfilled dependencies.
 		// As of Helm 2.4.0, this is treated as a stopping condition:
@@ -236,9 +242,11 @@ func (i *installCmd) run() error {
 		return fmt.Errorf("cannot load requirements: %v", err)
 	}
 
+	//??调用helm client
 	res, err := i.client.InstallReleaseFromChart(
 		chartRequested,
 		i.namespace,
+		//通过--set/--values指定覆盖的chart默认的values
 		helm.ValueOverrides(rawVals),
 		helm.ReleaseName(i.name),
 		helm.InstallDryRun(i.dryRun),
@@ -359,7 +367,9 @@ func locateChartPath(repoURL, name, version string, verify bool, keyring,
 	certFile, keyFile, caFile string) (string, error) {
 	name = strings.TrimSpace(name)
 	version = strings.TrimSpace(version)
+	//检测当前目录?
 	if fi, err := os.Stat(name); err == nil {
+		//返回绝对路径
 		abs, err := filepath.Abs(name)
 		if err != nil {
 			return abs, err
@@ -374,6 +384,7 @@ func locateChartPath(repoURL, name, version string, verify bool, keyring,
 		}
 		return abs, nil
 	}
+	//找不到指定的文件
 	if filepath.IsAbs(name) || strings.HasPrefix(name, ".") {
 		return name, fmt.Errorf("path %q not found", name)
 	}
@@ -420,7 +431,9 @@ func locateChartPath(repoURL, name, version string, verify bool, keyring,
 	return filename, fmt.Errorf("file %q not found", name)
 }
 
+//解析模板
 func generateName(nameTemplate string) (string, error) {
+	//增加指定的函数到template的函数表
 	t, err := template.New("name-template").Funcs(sprig.TxtFuncMap()).Parse(nameTemplate)
 	if err != nil {
 		return "", err

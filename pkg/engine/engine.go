@@ -37,8 +37,8 @@ type Engine struct {
 	FuncMap template.FuncMap
 	// If strict is enabled, template rendering will fail if a template references
 	// a value that was not passed in.
-	Strict           bool
-	CurrentTemplates map[string]renderable
+	Strict           bool                  //默认为false
+	CurrentTemplates map[string]renderable //默认为空
 }
 
 // New creates a new Go template Engine instance.
@@ -69,8 +69,10 @@ func New() *Engine {
 //	   included in the FuncMap is a placeholder.
 //      - "tpl": This is late-bound in Engine.Render(). The version
 //	   included in the FuncMap is a placeholder.
+//添加到golang text template的解析函数
 func FuncMap() template.FuncMap {
 	f := sprig.TxtFuncMap()
+	//移除sprig函数表中的两个函数
 	delete(f, "env")
 	delete(f, "expandenv")
 
@@ -118,6 +120,7 @@ func FuncMap() template.FuncMap {
 // bar chart during render time.
 func (e *Engine) Render(chrt *chart.Chart, values chartutil.Values) (map[string]string, error) {
 	// Render the charts
+	//这里是合并chart和values,dependencies???
 	tmap := allTemplates(chrt, values)
 	e.CurrentTemplates = tmap
 	return e.render(tmap)
@@ -185,6 +188,7 @@ func (e *Engine) alterFuncMap(t *template.Template) template.FuncMap {
 }
 
 // render takes a map of templates/values and renders them.
+//利用golang template包解析
 func (e *Engine) render(tpls map[string]renderable) (map[string]string, error) {
 	// Basically, what we do here is start with an empty parent template and then
 	// build up a list of templates -- one for each file. Once all of the templates
@@ -194,6 +198,7 @@ func (e *Engine) render(tpls map[string]renderable) (map[string]string, error) {
 	// to share common blocks, but to make the entire thing feel like a file-based
 	// template engine.
 	t := template.New("gotpl")
+	//指定如果右键没有解析,对正确还是有错
 	if e.Strict {
 		t.Option("missingkey=error")
 	} else {
@@ -202,6 +207,7 @@ func (e *Engine) render(tpls map[string]renderable) (map[string]string, error) {
 		t.Option("missingkey=zero")
 	}
 
+	//添加特殊的函数到模板引擎中
 	funcMap := e.alterFuncMap(t)
 
 	// We want to parse the templates in a predictable order. The order favors
@@ -212,6 +218,7 @@ func (e *Engine) render(tpls map[string]renderable) (map[string]string, error) {
 
 	for _, fname := range keys {
 		r := tpls[fname]
+		//添加新的模板函数到模板中
 		t = t.New(fname).Funcs(funcMap)
 		if _, err := t.Parse(r.tpl); err != nil {
 			return map[string]string{}, fmt.Errorf("parse error in %q: %s", fname, err)
@@ -221,6 +228,7 @@ func (e *Engine) render(tpls map[string]renderable) (map[string]string, error) {
 
 	// Adding the engine's currentTemplates to the template context
 	// so they can be referenced in the tpl function
+	//???
 	for fname, r := range e.CurrentTemplates {
 		if t.Lookup(fname) == nil {
 			t = t.New(fname).Funcs(funcMap)

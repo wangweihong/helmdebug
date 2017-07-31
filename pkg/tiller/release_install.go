@@ -32,6 +32,7 @@ import (
 
 // InstallRelease installs a release and stores the release record.
 func (s *ReleaseServer) InstallRelease(c ctx.Context, req *services.InstallReleaseRequest) (*services.InstallReleaseResponse, error) {
+	//如果没有指定release名,则这里输出过空
 	s.Log("preparing install for %s", req.Name)
 	rel, err := s.prepareRelease(req)
 	if err != nil {
@@ -47,6 +48,7 @@ func (s *ReleaseServer) InstallRelease(c ctx.Context, req *services.InstallRelea
 	}
 
 	s.Log("performing install for %s", req.Name)
+	//安装release
 	res, err := s.performRelease(rel, req)
 	if err != nil {
 		s.Log("failed install perform step: %s", err)
@@ -60,11 +62,13 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 		return nil, errMissingChart
 	}
 
+	//尝试获取helm 中唯一release名
 	name, err := s.uniqName(req.Name, req.ReuseName)
 	if err != nil {
 		return nil, err
 	}
 
+	//???
 	caps, err := capabilities(s.clientset.Discovery())
 	if err != nil {
 		return nil, err
@@ -79,11 +83,14 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 		Revision:  revision,
 		IsInstall: true,
 	}
+
+	//caps是什么?
 	valuesToRender, err := chartutil.ToRenderValuesCaps(req.Chart, req.Values, options, caps)
 	if err != nil {
 		return nil, err
 	}
 
+	///这里的manifestDesc就是生成的k8s资源ymal描述
 	hooks, manifestDoc, notesTxt, err := s.renderResources(req.Chart, valuesToRender, caps.APIVersions)
 	if err != nil {
 		// Return a release with partial data so that client can show debugging
@@ -105,6 +112,12 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 			rel.Manifest = manifestDoc.String()
 		}
 		return rel, err
+	}
+
+	//打印解析后的k8s资源文件
+	fmt.Println("==================>>>")
+	if manifestDoc != nil {
+		fmt.Println(manifestDoc.String())
 	}
 
 	// Store a release.

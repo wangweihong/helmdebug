@@ -84,6 +84,7 @@ func (y EngineYard) Default() Engine {
 //
 // An Engine must be capable of executing multiple concurrent requests, but
 // without tainting one request's environment with data from another request.
+//k8s.io/helm/pkg/engine/engine.go实现了一个模板引擎
 type Engine interface {
 	// Render renders a chart.
 	//
@@ -204,7 +205,7 @@ func (p *PrintingKubeClient) WaitAndGetCompletedPodPhase(namespace string, reade
 // All services in a context are concurrency safe.
 type Environment struct {
 	// EngineYard provides access to the known template engines.
-	EngineYard EngineYard
+	EngineYard EngineYard //模板引擎列表
 	// Releases stores records of releases.
 	Releases *storage.Storage
 	// KubeClient is a Kubernetes API client.
@@ -213,15 +214,17 @@ type Environment struct {
 
 // New returns an environment initialized with the defaults.
 func New() *Environment {
+	//初始化默认的模板引擎
 	e := engine.New()
+	//记录模板引擎表
 	var ey EngineYard = map[string]Engine{
 		// Currently, the only template engine we support is the GoTpl one. But
 		// we can easily add some here.
-		GoTplEngine: e,
+		GoTplEngine: e, //默认的模板引擎列表
 	}
 
 	return &Environment{
 		EngineYard: ey,
-		Releases:   storage.Init(driver.NewMemory()),
+		Releases:   storage.Init(driver.NewMemory()), //初始化存储驱动后端
 	}
 }

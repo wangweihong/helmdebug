@@ -150,24 +150,31 @@ func (s *ReleaseServer) reuseValues(req *services.UpdateReleaseRequest, current 
 	return nil
 }
 
+//生成唯一Release名?
 func (s *ReleaseServer) uniqName(start string, reuse bool) (string, error) {
 
 	// If a name is supplied, we check to see if that name is taken. If not, it
 	// is granted. If reuse is true and a deleted release with that name exists,
 	// we re-grant it. Otherwise, an error is returned.
+	//如果指定了release名
 	if start != "" {
 
+		//默认release名不超过53
 		if len(start) > releaseNameMaxLen {
 			return "", fmt.Errorf("release name %q exceeds max length of %d", start, releaseNameMaxLen)
 		}
 
+		//找到指定release名的历史
 		h, err := s.env.Releases.History(start)
+		//release不存在
 		if err != nil || len(h) < 1 {
+			//可以使用默认名
 			return start, nil
 		}
 		relutil.Reverse(h, relutil.SortByRevision)
 		rel := h[0]
 
+		//如果reuse标志设置了,release已经删除,或者处于失败状态,则重用该release名
 		if st := rel.Info.Status.Code; reuse && (st == release.Status_DELETED || st == release.Status_FAILED) {
 			// Allowe re-use of names if the previous release is marked deleted.
 			s.Log("name %s exists but is not in use, reusing name", start)
@@ -179,13 +186,16 @@ func (s *ReleaseServer) uniqName(start string, reuse bool) (string, error) {
 		return "", fmt.Errorf("a release named %s already exists.\nRun: helm ls --all %s; to check the status of the release\nOr run: helm del --purge %s; to delete it", start, start, start)
 	}
 
+	//重复5次,随机生成release名
 	maxTries := 5
 	for i := 0; i < maxTries; i++ {
+		//利用moniker生成新的release名
 		namer := moniker.New()
 		name := namer.NameSep("-")
 		if len(name) > releaseNameMaxLen {
 			name = name[:releaseNameMaxLen]
 		}
+		//检测指定的release名是否已经存在
 		if _, err := s.env.Releases.Get(name, 1); strings.Contains(err.Error(), "not found") {
 			return name, nil
 		}
@@ -195,8 +205,11 @@ func (s *ReleaseServer) uniqName(start string, reuse bool) (string, error) {
 	return "ERROR", errors.New("no available release name found")
 }
 
+//获取模板引擎
 func (s *ReleaseServer) engine(ch *chart.Chart) environment.Engine {
+	//获得默认的模板引擎
 	renderer := s.env.EngineYard.Default()
+	//如果指定了模板引擎,替换默认的模板引擎
 	if ch.Metadata.Engine != "" {
 		if r, ok := s.env.EngineYard.Get(ch.Metadata.Engine); ok {
 			renderer = r
@@ -252,7 +265,9 @@ func (s *ReleaseServer) renderResources(ch *chart.Chart, values chartutil.Values
 	}
 
 	s.Log("rendering %s chart using values", ch.GetMetadata().Name)
+	//获得模板引擎
 	renderer := s.engine(ch)
+	//利用模板引擎解析chart
 	files, err := renderer.Render(ch, values)
 	if err != nil {
 		return nil, nil, "", err
