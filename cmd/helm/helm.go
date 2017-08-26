@@ -258,6 +258,7 @@ func ensureHelmClient(h helm.Interface) helm.Interface {
 	return newClient()
 }
 
+//创建一个helm新的客户端
 func newClient() helm.Interface {
 	options := []helm.Option{helm.Host(settings.TillerHost)}
 

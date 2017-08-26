@@ -42,6 +42,7 @@ import (
 //
 // If a .helmignore file is present, the directory loader will skip loading any files
 // matching it. But .helmignore is not evaluated when reading out of an archive.
+//从指定路径中加载Chart对象
 func Load(name string) (*chart.Chart, error) {
 	fi, err := os.Stat(name)
 	if err != nil {
@@ -202,6 +203,7 @@ func LoadFiles(files []*BufferedFile) (*chart.Chart, error) {
 }
 
 // LoadFile loads from an archive file.
+// 从一个压缩文件中加载Chart对象
 func LoadFile(name string) (*chart.Chart, error) {
 	if fi, err := os.Stat(name); err != nil {
 		return nil, err
@@ -221,6 +223,7 @@ func LoadFile(name string) (*chart.Chart, error) {
 // LoadDir loads from a directory.
 //
 // This loads charts only from directories.
+//加载指定目录中的文件成Chart对象
 func LoadDir(dir string) (*chart.Chart, error) {
 	topdir, err := filepath.Abs(dir)
 	if err != nil {

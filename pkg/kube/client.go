@@ -57,18 +57,22 @@ var ErrNoObjectsVisited = goerrors.New("no objects visited")
 
 // Client represents a client capable of communicating with the Kubernetes API.
 type Client struct {
-	cmdutil.Factory
+	cmdutil.Factory //这是kubectl的Factory interface
 	// SchemaCacheDir is the path for loading cached schema.
-	SchemaCacheDir string
+	SchemaCacheDir string //schema文件
 
 	Log func(string, ...interface{})
 }
 
 // New creates a new Client.
+// 调用传递的config参数为nil
+// 这里能够像Kubectl那样通过--kubeconfig或者$KUBECONFIG来指定特定的配置文件?
+// 不能通过--kubeconfig,因为tiller并不支持--kubeconfig参数.
+// 但$KUBECONFIG没有问题,
 func New(config clientcmd.ClientConfig) *Client {
 	return &Client{
-		Factory:        cmdutil.NewFactory(config),
-		SchemaCacheDir: clientcmd.RecommendedSchemaFile,
+		Factory:        cmdutil.NewFactory(config),      //绑定一个新的k8s kubectl Factory
+		SchemaCacheDir: clientcmd.RecommendedSchemaFile, //$HOME/.kube/schema,这个schema是kubectl在创建资源时从server端下载下来
 		Log:            func(_ string, _ ...interface{}) {},
 	}
 }
@@ -79,6 +83,7 @@ type ResourceActorFunc func(*resource.Info) error
 // Create creates Kubernetes resources from an io.reader.
 //
 // Namespace will set the namespace.
+//创建k8s资源, reader读出的是k8s资源的yaml
 func (c *Client) Create(namespace string, reader io.Reader, timeout int64, shouldWait bool) error {
 	client, err := c.ClientSet()
 	if err != nil {
@@ -92,7 +97,16 @@ func (c *Client) Create(namespace string, reader io.Reader, timeout int64, shoul
 	if buildErr != nil {
 		return buildErr
 	}
+	//在这里info.Object和info.VersoinObject都是yaml以map[string]interface{}解析后的结果
+	//&{map[apiVersion:v1 data:map[smtp-password: wordpress-db-password:ME4zYTE3N0YxdA== wordpress-password:ODhWVlFQdnFmSw==] kind:Secret metadata:map[name:waxen-goose-wordpress namespace:default labels:map[heritage:Tiller release:waxen-goose app:waxen-goose-wordpress chart:wordpress-0.6.8]] type:Opaque]}
 	c.Log("creating %d resource(s)", len(infos))
+	for _, v := range infos {
+		fmt.Println("source:", v.Source)
+		fmt.Println("object:", v.Object)
+		fmt.Println("versionObject:", v.VersionedObject)
+		fmt.Println("---------------")
+	}
+	//对所有的k8s资源执行构建
 	if err := perform(infos, createResource); err != nil {
 		return err
 	}
@@ -118,7 +132,11 @@ func (c *Client) newBuilder(namespace string, reader io.Reader) *resource.Result
 }
 
 // BuildUnstructured validates for Kubernetes objects and returns unstructured infos.
+//被k8s.io/helm/pkg/tiller/release_server.go的validateManifest调用
+//reader传递的是k8s资源描述内容
 func (c *Client) BuildUnstructured(namespace string, reader io.Reader) (Result, error) {
+	//利用Kubectl建立一个k8s资源检测器
+	//如果报错,只是一个警告,并不影响,schema
 	schema, err := c.Validator(true, c.SchemaCacheDir)
 	if err != nil {
 		c.Log("warning: failed to load schema: %s", err)
@@ -126,6 +144,7 @@ func (c *Client) BuildUnstructured(namespace string, reader io.Reader) (Result, 
 
 	var result Result
 	//利用了kubectl?
+	//这个UnstructedBulder的作用是什么???
 	b, err := c.NewUnstructuredBuilder(true)
 	if err != nil {
 		return result, err
@@ -134,7 +153,7 @@ func (c *Client) BuildUnstructured(namespace string, reader io.Reader) (Result, 
 		Schema(schema).
 		NamespaceParam(namespace).
 		DefaultNamespace().
-		Stream(reader, "").
+		Stream(reader, ""). //k8s对象
 		Flatten().
 		Do().Infos()
 	return result, scrubValidationError(err)
@@ -345,6 +364,7 @@ func perform(infos Result, fn ResourceActorFunc) error {
 	return nil
 }
 
+//在创建release时调用
 func createResource(info *resource.Info) error {
 	obj, err := resource.NewHelper(info.Client, info.Mapping).Create(info.Namespace, true, info.Object)
 	if err != nil {
@@ -353,6 +373,7 @@ func createResource(info *resource.Info) error {
 	return info.Refresh(obj, true)
 }
 
+//在删除release时调用
 func deleteResource(c *Client, info *resource.Info) error {
 	reaper, err := c.Reaper(info.Mapping)
 	if err != nil {

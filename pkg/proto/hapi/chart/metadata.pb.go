@@ -63,6 +63,7 @@ func (m *Maintainer) GetEmail() string {
 // 	Metadata for a Chart file. This models the structure of a Chart.yaml file.
 //
 // 	Spec: https://k8s.io/helm/blob/master/docs/design/chart_format.md#the-chart-file
+//这是Chart.yaml文件存储的内容格式
 type Metadata struct {
 	// The name of the chart
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`

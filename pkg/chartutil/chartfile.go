@@ -34,6 +34,7 @@ import (
 const ApiVersionV1 = "v1"
 
 // UnmarshalChartfile takes raw Chart.yaml data and unmarshals it.
+//解析Chart.yaml文件成chart的元数据
 func UnmarshalChartfile(data []byte) (*chart.Metadata, error) {
 	y := &chart.Metadata{}
 	err := yaml.Unmarshal(data, y)
@@ -44,6 +45,7 @@ func UnmarshalChartfile(data []byte) (*chart.Metadata, error) {
 }
 
 // LoadChartfile loads a Chart.yaml file into a *chart.Metadata.
+//加载Chart.yaml文件,并且解析成chart元数据
 func LoadChartfile(filename string) (*chart.Metadata, error) {
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -55,6 +57,7 @@ func LoadChartfile(filename string) (*chart.Metadata, error) {
 // SaveChartfile saves the given metadata as a Chart.yaml file at the given path.
 //
 // 'filename' should be the complete path and filename ('foo/Chart.yaml')
+//保存Chart元数据到指定的文件中
 func SaveChartfile(filename string, cf *chart.Metadata) error {
 	out, err := yaml.Marshal(cf)
 	if err != nil {
@@ -66,6 +69,7 @@ func SaveChartfile(filename string, cf *chart.Metadata) error {
 // IsChartDir validate a chart directory.
 //
 // Checks for a valid Chart.yaml.
+//检测目录是否是Chart目录,里面的chart.yaml文件是否正确
 func IsChartDir(dirName string) (bool, error) {
 	if fi, err := os.Stat(dirName); err != nil {
 		return false, err
@@ -73,16 +77,19 @@ func IsChartDir(dirName string) (bool, error) {
 		return false, fmt.Errorf("%q is not a directory", dirName)
 	}
 
+	//确认Chart.yaml文件是否存在
 	chartYaml := filepath.Join(dirName, "Chart.yaml")
 	if _, err := os.Stat(chartYaml); os.IsNotExist(err) {
 		return false, fmt.Errorf("no Chart.yaml exists in directory %q", dirName)
 	}
 
+	//读取chart.yaml文件内容
 	chartYamlContent, err := ioutil.ReadFile(chartYaml)
 	if err != nil {
 		return false, fmt.Errorf("cannot read Chart.Yaml in directory %q", dirName)
 	}
 
+	//解析Chart.yaml文件内容
 	chartContent, err := UnmarshalChartfile(chartYamlContent)
 	if err != nil {
 		return false, err

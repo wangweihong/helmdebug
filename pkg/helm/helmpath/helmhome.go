@@ -83,6 +83,7 @@ func (h Home) Plugins() string {
 }
 
 // Archive returns the path to download chart archives
+//$HOME/cache/archive
 func (h Home) Archive() string {
 	return h.Path("cache", "archive")
 }

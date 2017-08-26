@@ -100,23 +100,23 @@ charts in a repository, use 'helm search'.
 `
 
 type installCmd struct {
-	name         string
-	namespace    string //release安装的目录
-	valueFiles   valueFiles
-	chartPath    string //安装的chart名
-	dryRun       bool   //模拟安装
+	name         string     //指定release名
+	namespace    string     //release安装的目录
+	valueFiles   valueFiles //chart的模板配置文件
+	chartPath    string     //安装的chart的绝对路径
+	dryRun       bool       //模拟安装
 	disableHooks bool
 	replace      bool
 	verify       bool
 	keyring      string
 	out          io.Writer
-	client       helm.Interface //?
+	client       helm.Interface //helm客户端,最终实现是k8s.io/helm/pkg/helm/client.go的Client
 	values       []string
-	nameTemplate string //???:
+	nameTemplate string //指定的release名的模板.
 	version      string
 	timeout      int64
 	wait         bool   //等待所有的pod就绪
-	repoURL      string //安装的chart所在的repo
+	repoURL      string //安装的chart所在的repo的URL
 	devel        bool
 
 	certFile string
@@ -141,6 +141,7 @@ func (v *valueFiles) Set(value string) error {
 	return nil
 }
 
+//调用时helm.Interface参数值为nil
 func newInstallCmd(c helm.Interface, out io.Writer) *cobra.Command {
 	inst := &installCmd{
 		out:    out,
@@ -163,7 +164,7 @@ func newInstallCmd(c helm.Interface, out io.Writer) *cobra.Command {
 				inst.version = ">0.0.0-a"
 			}
 
-			//定位chart的路径
+			//定位chart的绝对路径,如果是远程repo的chart包,则下载到$HELM_HOME/cache/archive目录后返回绝对路径
 			cp, err := locateChartPath(inst.repoURL, args[0], inst.version, inst.verify, inst.keyring,
 				inst.certFile, inst.keyFile, inst.caFile)
 			if err != nil {
@@ -215,7 +216,7 @@ func (i *installCmd) run() error {
 	// If template is specified, try to run the template.
 	//如果指定了release名的template模板,则解析该模板,获取指定的release名
 	if i.nameTemplate != "" {
-		//解析模板
+		//解析release名字模板
 		i.name, err = generateName(i.nameTemplate)
 		if err != nil {
 			return err
@@ -225,12 +226,13 @@ func (i *installCmd) run() error {
 	}
 
 	// Check chart requirements to make sure all dependencies are present in /charts
+	//加载指定的chart包?
 	chartRequested, err := chartutil.Load(i.chartPath)
 	if err != nil {
 		return prettyError(err)
 	}
 
-	//加载依赖
+	//加载chart包中的依赖
 	if req, err := chartutil.LoadRequirements(chartRequested); err == nil {
 		// If checkDependencies returns an error, we have unfullfilled dependencies.
 		// As of Helm 2.4.0, this is treated as a stopping condition:
@@ -242,7 +244,7 @@ func (i *installCmd) run() error {
 		return fmt.Errorf("cannot load requirements: %v", err)
 	}
 
-	//??调用helm client
+	//调用helm.Interface
 	res, err := i.client.InstallReleaseFromChart(
 		chartRequested,
 		i.namespace,
@@ -258,6 +260,7 @@ func (i *installCmd) run() error {
 		return prettyError(err)
 	}
 
+	//获得release的内容
 	rel := res.GetRelease()
 	if rel == nil {
 		return nil
@@ -363,11 +366,15 @@ func (i *installCmd) printRelease(rel *release.Release) {
 // - URL
 //
 // If 'verify' is true, this will attempt to also verify the chart.
+//name是Chart的名字
+//定位指定chart的绝对路径,如果文件不存在则保存.如果chart在一个远程Repo中
+//则下载到本地$HEML_HOME/cache/archive目录中,返回该chart的绝对路径
 func locateChartPath(repoURL, name, version string, verify bool, keyring,
 	certFile, keyFile, caFile string) (string, error) {
+	//获得chart包名和chart包版本
 	name = strings.TrimSpace(name)
 	version = strings.TrimSpace(version)
-	//检测当前目录?
+	//检测文件是否在
 	if fi, err := os.Stat(name); err == nil {
 		//返回绝对路径
 		abs, err := filepath.Abs(name)
@@ -384,26 +391,32 @@ func locateChartPath(repoURL, name, version string, verify bool, keyring,
 		}
 		return abs, nil
 	}
-	//找不到指定的文件
+	//如果找不到指定的文件
+	//检测文件如果是相对当前工作目录的路径是绝对路径,则报错
 	if filepath.IsAbs(name) || strings.HasPrefix(name, ".") {
 		return name, fmt.Errorf("path %q not found", name)
 	}
 
+	//在Helm Home目录repo下查找该文件,找到则返回该chart的绝对路径
 	crepo := filepath.Join(settings.Home.Repository(), name)
 	if _, err := os.Stat(crepo); err == nil {
 		return filepath.Abs(crepo)
 	}
 
+	//下载Chart包
 	dl := downloader.ChartDownloader{
 		HelmHome: settings.Home,
 		Out:      os.Stdout,
 		Keyring:  keyring,
 		Getters:  getter.All(settings),
 	}
+
 	if verify {
 		dl.Verify = downloader.VerifyAlways
 	}
+
 	if repoURL != "" {
+		//查找chart在repo中的url路径
 		chartURL, err := repo.FindChartInRepoURL(repoURL, name, version,
 			certFile, keyFile, caFile, getter.All(settings))
 		if err != nil {
@@ -412,10 +425,12 @@ func locateChartPath(repoURL, name, version string, verify bool, keyring,
 		name = chartURL
 	}
 
+	//检测$HEML_HOME/cache/archive是否存在,不存在则创建
 	if _, err := os.Stat(settings.Home.Archive()); os.IsNotExist(err) {
 		os.MkdirAll(settings.Home.Archive(), 0744)
 	}
 
+	//下载远程repo的chart包到$HELM_HOME/cache/archive目录中
 	filename, _, err := dl.DownloadTo(name, version, settings.Home.Archive())
 	if err == nil {
 		lname, err := filepath.Abs(filename)

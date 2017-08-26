@@ -132,7 +132,7 @@ func ReadValuesFile(filename string) (Values, error) {
 }
 
 // CoalesceValues coalesces all of the values in a chart (and its subcharts).
-//合并所有值到char中
+//合并所有值到chart中
 // Values are coalesced together using the following rules:
 //
 //	- Values in a higher level chart always override values in a lower-level

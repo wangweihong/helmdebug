@@ -242,6 +242,7 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 `
 
 // CreateFrom creates a new chart, but scaffolds it from the src chart.
+//从指定中加载Chart对象,更改chart的元数据后在新的路径创建chart包
 func CreateFrom(chartfile *chart.Metadata, dest string, src string) error {
 	schart, err := Load(src)
 	if err != nil {
@@ -265,34 +266,41 @@ func CreateFrom(chartfile *chart.Metadata, dest string, src string) error {
 // If Chart.yaml or any directories cannot be created, this will return an
 // error. In such a case, this will attempt to clean up by removing the
 // new chart directory.
+//根据chart元数据创建新的Chart包
 func Create(chartfile *chart.Metadata, dir string) (string, error) {
+	//获取目录的绝对路径
 	path, err := filepath.Abs(dir)
 	if err != nil {
 		return path, err
 	}
 
+	//检测指定的目录是否存在
 	if fi, err := os.Stat(path); err != nil {
 		return path, err
 	} else if !fi.IsDir() {
 		return path, fmt.Errorf("no such directory %s", path)
 	}
 
+	//检测上述目录中指定chart包是否已经存在
 	n := chartfile.Name
 	cdir := filepath.Join(path, n)
 	if fi, err := os.Stat(cdir); err == nil && !fi.IsDir() {
 		return cdir, fmt.Errorf("file %s already exists and is not a directory", cdir)
 	}
+	//创建chart包目录
 	if err := os.MkdirAll(cdir, 0755); err != nil {
 		return cdir, err
 	}
 
+	//创建Chart.yaml文件,保存chart的元数据到该文件中
 	cf := filepath.Join(cdir, ChartfileName)
 	if _, err := os.Stat(cf); err != nil {
+		//保存元数据到指定的chart包中kkk
 		if err := SaveChartfile(cf, chartfile); err != nil {
 			return cdir, err
 		}
 	}
-
+	//创建templates和charts目录
 	for _, d := range []string{TemplatesDir, ChartsDir} {
 		if err := os.MkdirAll(filepath.Join(cdir, d), 0755); err != nil {
 			return cdir, err
@@ -340,6 +348,7 @@ func Create(chartfile *chart.Metadata, dir string) (string, error) {
 		},
 	}
 
+	//填充默认的内容到文件中
 	for _, file := range files {
 		if _, err := os.Stat(file.path); err == nil {
 			// File exists and is okay. Skip it.

@@ -56,6 +56,7 @@ var ErrNoOwnerRepo = errors.New("could not find a repo containing the given URL"
 // ChartDownloader handles downloading a chart.
 //
 // It is capable of performing verifications on charts as well.
+//用来下载Chart
 type ChartDownloader struct {
 	// Out is the location to write warning and info messages.
 	Out io.Writer

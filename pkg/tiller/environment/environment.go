@@ -209,7 +209,7 @@ type Environment struct {
 	// Releases stores records of releases.
 	Releases *storage.Storage
 	// KubeClient is a Kubernetes API client.
-	KubeClient KubeClient
+	KubeClient KubeClient //k8s客户端
 }
 
 // New returns an environment initialized with the defaults.

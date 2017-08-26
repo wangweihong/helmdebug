@@ -96,11 +96,13 @@ func main() {
 
 func start() {
 
+	// 创建一个kubectl Factory
 	clientset, err := kube.New(nil).ClientSet()
 	if err != nil {
 		logger.Fatalf("Cannot initialize Kubernetes connection: %s", err)
 	}
 
+	//根据存储方式创建存储驱动
 	switch *store {
 	case storageMemory:
 		env.Releases = storage.Init(driver.NewMemory())
@@ -112,6 +114,7 @@ func start() {
 		env.Releases.Log = newLogger("storage").Printf
 	}
 
+	//创建kube client
 	kubeClient := kube.New(nil)
 	kubeClient.Log = newLogger("kube").Printf
 	env.KubeClient = kubeClient
@@ -151,6 +154,8 @@ func start() {
 	srvErrCh := make(chan error)
 	probeErrCh := make(chan error)
 	go func() {
+		//创建新的release服务.remoteReleaseModules是传递进来的bool参数
+		//负责release的管理
 		svc := tiller.NewReleaseServer(env, clientset, *remoteReleaseModules)
 		svc.Log = newLogger("tiller").Printf
 		services.RegisterReleaseServiceServer(rootServer, svc)

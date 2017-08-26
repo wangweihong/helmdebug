@@ -26,19 +26,21 @@ var DefaultVersionSet = NewVersionSet("v1")
 // Capabilities describes the capabilities of the Kubernetes cluster that Tiller is attached to.
 type Capabilities struct {
 	// List of all supported API versions
-	APIVersions VersionSet
+	APIVersions VersionSet //k8s支持的所有api版本号
 	// KubeVerison is the Kubernetes version
-	KubeVersion *version.Info
+	KubeVersion *version.Info //k8s server的版本号
 	// TillerVersion is the Tiller version
 	//
 	// This always comes from pkg/version.GetVersionProto().
-	TillerVersion *tversion.Version
+	TillerVersion *tversion.Version //tiller的版本号
 }
 
 // VersionSet is a set of Kubernetes API versions.
-type VersionSet map[string]interface{}
+type VersionSet map[string]interface{} //记录这k8s支持的apiVersion, 在将manifest文件转换成k8s资源时,需要检测api版本是否支持
+//见k8s.io/helm/pkg/tiller/release_server.go的GetVersionSet()
 
 // NewVersionSet creates a new version set from a list of strings.
+//见k8s.io/helm/pkg/tiller/release_server.go的GetVersionSet()
 func NewVersionSet(apiVersions ...string) VersionSet {
 	vs := VersionSet{}
 	for _, v := range apiVersions {

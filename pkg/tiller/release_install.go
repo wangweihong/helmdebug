@@ -68,7 +68,7 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 		return nil, err
 	}
 
-	//???
+	//获得k8s server的版本号,支持的api版本集(extesions/v1beta1),以及tiller版本号
 	caps, err := capabilities(s.clientset.Discovery())
 	if err != nil {
 		return nil, err
@@ -84,13 +84,13 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 		IsInstall: true,
 	}
 
-	//caps是什么?
 	valuesToRender, err := chartutil.ToRenderValuesCaps(req.Chart, req.Values, options, caps)
 	if err != nil {
 		return nil, err
 	}
 
 	///这里的manifestDesc就是生成的k8s资源ymal描述
+	//解析chart和value,并检查其中的k8s资源的api版本是否被支持
 	hooks, manifestDoc, notesTxt, err := s.renderResources(req.Chart, valuesToRender, caps.APIVersions)
 	if err != nil {
 		// Return a release with partial data so that client can show debugging
@@ -140,6 +140,9 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 		rel.Info.Status.Notes = notesTxt
 	}
 
+	//检测manifest是否合法吗?
+	//对,向k8s发出请求
+	//但注意这里不是使用k8s restclient,而是利用了kubectl的Factory
 	err = validateManifest(s.env.KubeClient, req.Namespace, manifestDoc.Bytes())
 	return rel, err
 }
@@ -148,6 +151,7 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 func (s *ReleaseServer) performRelease(r *release.Release, req *services.InstallReleaseRequest) (*services.InstallReleaseResponse, error) {
 	res := &services.InstallReleaseResponse{Release: r}
 
+	//不运行,只测试
 	if req.DryRun {
 		s.Log("dry run for %s", r.Name)
 		res.Release.Info.Description = "Dry run complete"
@@ -165,6 +169,7 @@ func (s *ReleaseServer) performRelease(r *release.Release, req *services.Install
 
 	switch h, err := s.env.Releases.History(req.Name); {
 	// if this is a replace operation, append to the release history
+	//重用已停止的release的名字
 	case req.ReuseName && err == nil && len(h) >= 1:
 		s.Log("name reuse for %s requested, replacing release", req.Name)
 		// get latest release revision
@@ -199,6 +204,7 @@ func (s *ReleaseServer) performRelease(r *release.Release, req *services.Install
 	default:
 		// nothing to replace, create as normal
 		// regular manifests
+		//调用k8s client/或者rudder api去创建k8s资源
 		if err := s.ReleaseModule.Create(r, req, s.env); err != nil {
 			msg := fmt.Sprintf("Release %q failed: %s", r.Name, err)
 			s.Log("warning: %s", msg)

@@ -180,9 +180,11 @@ func (r *ChartRepository) generateIndex() error {
 
 // FindChartInRepoURL finds chart in chart repository pointed by repoURL
 // without adding repo to repostiories
+//查找chart在repo中的路径
 func FindChartInRepoURL(repoURL, chartName, chartVersion, certFile, keyFile, caFile string, getters getter.Providers) (string, error) {
 
 	// Download and write the index file to a temporary location
+	//创建一个临时文件
 	tempIndexFile, err := ioutil.TempFile("", "tmp-repo-file")
 	if err != nil {
 		return "", fmt.Errorf("cannot write index file for repository requested")

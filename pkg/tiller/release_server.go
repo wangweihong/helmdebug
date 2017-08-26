@@ -79,20 +79,23 @@ var ValidName = regexp.MustCompile("^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])+
 
 // ReleaseServer implements the server-side gRPC endpoint for the HAPI services.
 type ReleaseServer struct {
-	ReleaseModule
-	env       *environment.Environment
-	clientset internalclientset.Interface
-	Log       func(string, ...interface{})
+	ReleaseModule                          //interface,包含对K8s资源的创建/删除/更新的功能
+	env           *environment.Environment //这里面包括kube client //k8s.io/helm/pkg/kube/client.go
+	clientset     internalclientset.Interface
+	Log           func(string, ...interface{})
 }
 
 // NewReleaseServer creates a new release server.
+//创建release server,见k8s.io/helm/cmd/tiller/tiller.go
 func NewReleaseServer(env *environment.Environment, clientset internalclientset.Interface, useRemote bool) *ReleaseServer {
+
+	//远程Release server,目前仍处于实验性质
 	var releaseModule ReleaseModule
 	if useRemote {
-		releaseModule = &RemoteReleaseModule{}
+		releaseModule = &RemoteReleaseModule{} //rudder api?
 	} else {
 		releaseModule = &LocalReleaseModule{
-			clientset: clientset,
+			clientset: clientset, // k8s的内部客户端
 		}
 	}
 
@@ -150,7 +153,7 @@ func (s *ReleaseServer) reuseValues(req *services.UpdateReleaseRequest, current 
 	return nil
 }
 
-//生成唯一Release名?
+//生成唯一Release名?对
 func (s *ReleaseServer) uniqName(start string, reuse bool) (string, error) {
 
 	// If a name is supplied, we check to see if that name is taken. If not, it
@@ -187,6 +190,7 @@ func (s *ReleaseServer) uniqName(start string, reuse bool) (string, error) {
 	}
 
 	//重复5次,随机生成release名
+	//测试
 	maxTries := 5
 	for i := 0; i < maxTries; i++ {
 		//利用moniker生成新的release名
@@ -221,11 +225,14 @@ func (s *ReleaseServer) engine(ch *chart.Chart) environment.Engine {
 }
 
 // capabilities builds a Capabilities from discovery information.
+//获得k8s server的版本号,支持的api版本集,以及tiller版本号
 func capabilities(disc discovery.DiscoveryInterface) (*chartutil.Capabilities, error) {
+	//获得k8s server的版本号
 	sv, err := disc.ServerVersion()
 	if err != nil {
 		return nil, err
 	}
+	//获得k8s服务器支持的api版本集
 	vs, err := GetVersionSet(disc)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get apiVersions from Kubernetes: %s", err)
@@ -238,8 +245,9 @@ func capabilities(disc discovery.DiscoveryInterface) (*chartutil.Capabilities, e
 }
 
 // GetVersionSet retrieves a set of available k8s API versions
+//获取K8s支持api版本组
 func GetVersionSet(client discovery.ServerGroupsInterface) (chartutil.VersionSet, error) {
-	groups, err := client.ServerGroups()
+	groups, err := client.ServerGroups() //???api组?
 	if err != nil {
 		return chartutil.DefaultVersionSet, err
 	}
@@ -253,11 +261,15 @@ func GetVersionSet(client discovery.ServerGroupsInterface) (chartutil.VersionSet
 	}
 
 	versions := metav1.ExtractGroupVersions(groups)
+	//创建新的版本集
 	return chartutil.NewVersionSet(versions...), nil
 }
 
+//解析chart,得到chart钩子,manifest描述,注释
+// 注意这里只检查了k8s 资源的版本是否被支持,并没有检测资源描述是否完全合法
 func (s *ReleaseServer) renderResources(ch *chart.Chart, values chartutil.Values, vs chartutil.VersionSet) ([]*release.Hook, *bytes.Buffer, string, error) {
 	// Guard to make sure Tiller is at the right version to handle this chart.
+	//获得tiller当前的版本
 	sver := version.GetVersion()
 	if ch.Metadata.TillerVersion != "" &&
 		!version.IsCompatibleRange(ch.Metadata.TillerVersion, sver) {
@@ -279,6 +291,7 @@ func (s *ReleaseServer) renderResources(ch *chart.Chart, values chartutil.Values
 	// look for terminating NOTES.txt. We also remove it from the files so that we don't have to skip
 	// it in the sortHooks.
 	notes := ""
+	//移除注释的文件
 	for k, v := range files {
 		if strings.HasSuffix(k, notesFileSuffix) {
 			// Only apply the notes if it belongs to the parent chart
@@ -293,6 +306,7 @@ func (s *ReleaseServer) renderResources(ch *chart.Chart, values chartutil.Values
 	// Sort hooks, manifests, and partials. Only hooks and manifests are returned,
 	// as partials are not used after renderer.Render. Empty manifests are also
 	// removed here.
+	//vs是k8s server支持的api版本组,解析所有的描述k8s资源文件,解析成manifest对象
 	hooks, manifests, err := sortManifests(files, vs, InstallOrder)
 	if err != nil {
 		// By catching parse errors here, we can prevent bogus releases from going
@@ -312,6 +326,7 @@ func (s *ReleaseServer) renderResources(ch *chart.Chart, values chartutil.Values
 	}
 
 	// Aggregate all valid manifests into one big doc.
+	//将manifest存放在buffer中
 	b := bytes.NewBuffer(nil)
 	for _, m := range manifests {
 		b.WriteString("\n---\n# Source: " + m.name + "\n")
@@ -371,17 +386,42 @@ func (s *ReleaseServer) execHook(hs []*release.Hook, name, namespace, hook strin
 	return nil
 }
 
+//检测解析后的k8s resource manifest是否有效
 func validateManifest(c environment.KubeClient, ns string, manifest []byte) error {
 	r := bytes.NewReader(manifest)
-	_, err := c.BuildUnstructured(ns, r)
+	info, err := c.BuildUnstructured(ns, r)
+	//输出信息如
+	/*name:
+	needled-hamster-wordpress
+	namespace:
+	default
+	source:
+
+	versionObject:
+	 &{map[kind:Service metadata:map[labels:map[app:needled-hamster-wordpress chart:wordpress-0.6.8 heritage:Tiller release:needled-hamster] name:needled-hamster-wordpress namespace:default] spec:map[ports:[map[name:http port:80 targetPort:http] map[targetPort:https name:https port:443]] selector:map[app:needled-hamster-wordpress] type:LoadBalancer] apiVersion:v1]}
+	 object:
+	  &{map[kind:Service metadata:map[labels:map[heritage:Tiller release:needled-hamster app:needled-hamster-wordpress chart:wordpress-0.6.8] name:needled-hamster-wordpress namespace:default] spec:map[ports:[map[name:http port:80 targetPort:http] map[name:https port:443 targetPort:https]] selector:map[app:needled-hamster-wordpress] type:LoadBalancer] apiVersion:v1]}
+	*/
+	fmt.Println("\n\n===================validate Manifests==============")
+	for _, v := range info {
+		fmt.Println("name:\n" + v.Name)
+		fmt.Println("namespace:\n" + v.Namespace)
+		fmt.Println("source:\n" + v.Source)
+		fmt.Println("versionObject:\n", v.VersionedObject)
+		fmt.Println("object:\n", v.Object)
+		fmt.Println("\n\n=================================")
+	}
 	return err
 }
 
+//检测release名是否有效
 func validateReleaseName(releaseName string) error {
+
 	if releaseName == "" {
 		return errMissingRelease
 	}
 
+	//检测名字是否正则匹配以及长度未超过
 	if !ValidName.MatchString(releaseName) || (len(releaseName) > releaseNameMaxLen) {
 		return errInvalidName
 	}
