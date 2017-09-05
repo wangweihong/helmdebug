@@ -70,6 +70,7 @@ func (p Providers) ByScheme(scheme string) (Constructor, error) {
 // All finds all of the registered getters as a list of Provider instances.
 // Currently the build-in http/https getter and the discovered
 // plugins with downloader notations are collected.
+//???下载的插件?
 func All(settings environment.EnvSettings) Providers {
 	result := Providers{
 		{
@@ -77,6 +78,7 @@ func All(settings environment.EnvSettings) Providers {
 			New:     newHTTPGetter,
 		},
 	}
+	//初始化插件
 	pluginDownloaders, _ := collectPlugins(settings)
 	result = append(result, pluginDownloaders...)
 	return result

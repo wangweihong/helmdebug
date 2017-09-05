@@ -33,9 +33,9 @@ var ErrRepoOutOfDate = errors.New("repository file is out of date")
 
 // RepoFile represents the repositories.yaml file in $HELM_HOME
 type RepoFile struct {
-	APIVersion   string    `json:"apiVersion"`
-	Generated    time.Time `json:"generated"`
-	Repositories []*Entry  `json:"repositories"`
+	APIVersion   string    `json:"apiVersion"`   //api版本?有什么用?
+	Generated    time.Time `json:"generated"`    //repo文件生成的日期
+	Repositories []*Entry  `json:"repositories"` //每一项repo的信息
 }
 
 // NewRepoFile generates an empty repositories file.
@@ -53,6 +53,7 @@ func NewRepoFile() *RepoFile {
 //
 // If this returns ErrRepoOutOfDate, it also returns a recovered RepoFile that
 // can be saved as a replacement to the out of date file.
+//读取指定路径上的repofile
 func LoadRepositoriesFile(path string) (*RepoFile, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -86,6 +87,7 @@ func LoadRepositoriesFile(path string) (*RepoFile, error) {
 }
 
 // Add adds one or more repo entries to a repo file.
+//添加指定项到repofile中
 func (r *RepoFile) Add(re ...*Entry) {
 	r.Repositories = append(r.Repositories, re...)
 }
@@ -109,6 +111,7 @@ func (r *RepoFile) Update(re ...*Entry) {
 }
 
 // Has returns true if the given name is already a repository name.
+//检测指定的repo名是否已经存在了
 func (r *RepoFile) Has(name string) bool {
 	for _, rf := range r.Repositories {
 		if rf.Name == name {
@@ -119,6 +122,7 @@ func (r *RepoFile) Has(name string) bool {
 }
 
 // Remove removes the entry from the list of repositories.
+//移除repos指定的repo信息
 func (r *RepoFile) Remove(name string) bool {
 	cp := []*Entry{}
 	found := false
@@ -134,7 +138,9 @@ func (r *RepoFile) Remove(name string) bool {
 }
 
 // WriteFile writes a repositories file to the given path.
+//原子更改path路径文件上的内容为repo
 func (r *RepoFile) WriteFile(path string, perm os.FileMode) error {
+	//创建一个临时文件
 	f, err := atomicfile.New(path, perm)
 	if err != nil {
 		return err

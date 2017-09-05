@@ -62,6 +62,7 @@ const verSep = "$$"
 
 // AddRepo adds a repository index to the search index.
 func (i *Index) AddRepo(rname string, ind *repo.IndexFile, all bool) {
+	//按版本进行排序
 	ind.SortEntries()
 	for name, ref := range ind.Entries {
 		if len(ref) == 0 {

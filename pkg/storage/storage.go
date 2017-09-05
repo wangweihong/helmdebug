@@ -27,7 +27,7 @@ import (
 
 // Storage represents a storage engine for a Release.
 type Storage struct {
-	driver.Driver
+	driver.Driver //存储驱动,现在只吃configmap以及memory
 
 	// releaseLocks are for locking releases to make sure that only one operation at a time is executed on each release
 	releaseLocks map[string]*sync.Mutex
@@ -48,6 +48,7 @@ func (s *Storage) Get(name string, version int32) (*rspb.Release, error) {
 // Create creates a new storage entry holding the release. An
 // error is returned if the storage driver failed to store the
 // release, or a release with identical an key already exists.
+//创建存储后端
 func (s *Storage) Create(rls *rspb.Release) error {
 	s.Log("creating release %q", makeKey(rls.Name, rls.Version))
 	return s.Driver.Create(makeKey(rls.Name, rls.Version), rls)

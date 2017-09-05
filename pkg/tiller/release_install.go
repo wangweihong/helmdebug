@@ -84,6 +84,7 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 		IsInstall: true,
 	}
 
+	//返回release的信息分组
 	valuesToRender, err := chartutil.ToRenderValuesCaps(req.Chart, req.Values, options, caps)
 	if err != nil {
 		return nil, err
@@ -143,6 +144,7 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 	//检测manifest是否合法吗?
 	//对,向k8s发出请求
 	//但注意这里不是使用k8s restclient,而是利用了kubectl的Factory
+	//这里并没有创建k8s资源
 	err = validateManifest(s.env.KubeClient, req.Namespace, manifestDoc.Bytes())
 	return rel, err
 }
@@ -150,6 +152,13 @@ func (s *ReleaseServer) prepareRelease(req *services.InstallReleaseRequest) (*re
 // performRelease runs a release.
 func (s *ReleaseServer) performRelease(r *release.Release, req *services.InstallReleaseRequest) (*services.InstallReleaseResponse, error) {
 	res := &services.InstallReleaseResponse{Release: r}
+
+	fmt.Println("---------------release---------------")
+	//	fmt.Println("------chart::", r.Chart)
+	fmt.Println("------config:", r.Config)
+	fmt.Println("------info:", r.Info)
+	fmt.Println("------manifest:", r.Manifest)
+	fmt.Println("------name:", r.Name)
 
 	//不运行,只测试
 	if req.DryRun {

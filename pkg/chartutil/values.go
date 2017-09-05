@@ -372,6 +372,7 @@ func ToRenderValuesCaps(chrt *chart.Chart, chrtVals *chart.Config, options Relea
 		"Capabilities": caps,
 	}
 
+	//合并所有值到vals中
 	vals, err := CoalesceValues(chrt, chrtVals)
 	if err != nil {
 		return top, err

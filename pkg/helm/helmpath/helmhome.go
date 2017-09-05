@@ -46,6 +46,7 @@ func (h Home) Repository() string {
 }
 
 // RepositoryFile returns the path to the repositories.yaml file.
+// $HELMHOME/repository/repositories.yaml
 func (h Home) RepositoryFile() string {
 	return h.Path("repository", "repositories.yaml")
 }
@@ -56,6 +57,7 @@ func (h Home) Cache() string {
 }
 
 // CacheIndex returns the path to an index for the given named repository.
+//$HELMHOME/replository/cache/<repo>-index.yaml
 func (h Home) CacheIndex(name string) string {
 	target := fmt.Sprintf("%s-index.yaml", name)
 	return h.Path("repository", "cache", target)

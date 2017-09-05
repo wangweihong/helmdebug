@@ -16,15 +16,18 @@ var _ = math.Inf
 
 // Release describes a deployment of a chart, together with the chart
 // and the variables used to deploy that chart.
+//release将保存在release server指定的存储后端中
 type Release struct {
 	// Name is the name of the release
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	// Info provides information about a release
 	Info *Info `protobuf:"bytes,2,opt,name=info" json:"info,omitempty"`
 	// Chart is the chart that was released.
+	//原始chart数据,未解析.这里面也包括原生的values.aml
 	Chart *hapi_chart3.Chart `protobuf:"bytes,3,opt,name=chart" json:"chart,omitempty"`
 	// Config is the set of extra Values added to the chart.
 	// These values override the default values inside of the chart.
+	//通过helm --values参数指定的value file的内容以及helm --set的内容
 	Config *hapi_chart.Config `protobuf:"bytes,4,opt,name=config" json:"config,omitempty"`
 	// Manifest is the string representation of the rendered template.
 	//记录渲染后的模板

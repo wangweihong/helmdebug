@@ -300,6 +300,7 @@ func allTemplates(c *chart.Chart, vals chartutil.Values) map[string]renderable {
 //
 // As it recurses, it also sets the values to be appropriate for the template
 // scope.
+//遍历所有模板,设置其值
 func recAllTpls(c *chart.Chart, templates map[string]renderable, parentVals chartutil.Values, top bool, parentID string) {
 	// This should never evaluate to a nil map. That will cause problems when
 	// values are appended later.

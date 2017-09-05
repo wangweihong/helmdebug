@@ -46,7 +46,7 @@ var (
 	tlsEnable     bool   // enable TLS
 
 	tillerTunnel *kube.Tunnel
-	settings     helm_env.EnvSettings
+	settings     helm_env.EnvSettings //helm的设定,包括kubecontext,tiller监听的ip和端口,home目录
 )
 
 var globalUsage = `The Kubernetes package manager

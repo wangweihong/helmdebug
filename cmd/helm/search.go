@@ -134,14 +134,18 @@ func (s *searchCmd) formatSearchResults(res []*search.Result) string {
 
 func (s *searchCmd) buildIndex() (*search.Index, error) {
 	// Load the repositories.yaml
+	//加载repositories.yaml文件
 	rf, err := repo.LoadRepositoriesFile(s.helmhome.RepositoryFile())
 	if err != nil {
 		return nil, err
 	}
 
+	//创建index对象
 	i := search.NewIndex()
+	//遍历所有的repos
 	for _, re := range rf.Repositories {
 		n := re.Name
+		//加载repository/cache/<repo>-index.yaml文件,成Index对象
 		f := s.helmhome.CacheIndex(n)
 		ind, err := repo.LoadIndexFile(f)
 		if err != nil {

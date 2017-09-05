@@ -38,8 +38,8 @@ into the existing index, with local charts taking priority over existing charts.
 `
 
 type repoIndexCmd struct {
-	dir   string
-	url   string
+	dir   string //通过参数指定一个目录
+	url   string //通过选项--url指定一个url路径
 	out   io.Writer
 	merge string
 }
@@ -78,13 +78,17 @@ func (i *repoIndexCmd) run() error {
 	return index(path, i.url, i.merge)
 }
 
+//解析指定的chart压缩包,并更新成相应的index文件
 func index(dir, url, mergeTo string) error {
+	//指定index文件路径
 	out := filepath.Join(dir, "index.yaml")
 
+	//解析指定目录下的*.tgz文件为chart,并且添加到IndexFile对象中
 	i, err := repo.IndexDirectory(dir, url)
 	if err != nil {
 		return err
 	}
+	//如果指定的文件不为空,则合并两个index文件
 	if mergeTo != "" {
 		i2, err := repo.LoadIndexFile(mergeTo)
 		if err != nil {

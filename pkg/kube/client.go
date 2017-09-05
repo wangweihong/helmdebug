@@ -93,6 +93,7 @@ func (c *Client) Create(namespace string, reader io.Reader, timeout int64, shoul
 		return err
 	}
 	c.Log("building resources from manifest")
+	//通过buildErr检测k8s yaml是否正确
 	infos, buildErr := c.BuildUnstructured(namespace, reader)
 	if buildErr != nil {
 		return buildErr
@@ -149,6 +150,15 @@ func (c *Client) BuildUnstructured(namespace string, reader io.Reader) (Result, 
 	if err != nil {
 		return result, err
 	}
+
+	//这个并没有构建k8s resource,而是传递过来的resource描述进行了解析,一个pod.yaml的解析后经过下面的调用后得到以下的内容(部分)
+	/*name: nginx
+	namespace default
+	runtime &TypeMeta{Kind:,APIVersion:,}
+	VersionedObject &Pod{ObjectMeta:ObjectMeta{Name:nginx,GenerateName:,Namespace:,SelfLink:,UID:,ResourceVersion:,Generation:0,CreationTimestamp:0001-01-01 00:00:00 +0000 UTC,DeletionTimestamp:<nil>,DeletionGracePeriodSeconds:nil,Labels:map[string]string{},Annotations:map[string]string{},OwnerReferences:[],Finalizers:[],ClusterName:,},Spec:PodSpec{Volumes:[],Containers:[{nginx-test nginx:1.7.9 [] []  [{ 0 80  }] [] [] {map[] map[]} [] nil nil nil   nil false false false}],RestartPolicy:,TerminationGracePeriodSeconds:nil,ActiveDeadlineSeconds:nil,DNSPolicy:,NodeSelector:map[string]string{},ServiceAccountName:,DeprecatedServiceAccount:,NodeName:,HostNetwork:false,HostPID:false,HostIPC:false,SecurityContext:nil,ImagePullSecrets:[],Hostname:,Subdomain:,Affinity:nil,},Status:PodStatus{Phase:,Conditions:[],Message:,Reason:,HostIP:,PodIP:,StartTime:<nil>,ContainerStatuses:[],QOSClass:,},}
+	mapping &{pods /v1, Kind=Pod 0x1df9140 0xc42040ea80 {}}
+	*/
+	//这里可以通过err来检测传递过来的yaml文件是否合法
 	result, err = b.ContinueOnError().
 		Schema(schema).
 		NamespaceParam(namespace).
@@ -364,7 +374,7 @@ func perform(infos Result, fn ResourceActorFunc) error {
 	return nil
 }
 
-//在创建release时调用
+//在创建release时调用.这是创建资源处理的函数
 func createResource(info *resource.Info) error {
 	obj, err := resource.NewHelper(info.Client, info.Mapping).Create(info.Namespace, true, info.Object)
 	if err != nil {

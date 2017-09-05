@@ -93,11 +93,13 @@ func NewIndexFile() *IndexFile {
 }
 
 // LoadIndexFile takes a file at the given path and returns an IndexFile object
+//读文件生成indexFile对象
 func LoadIndexFile(path string) (*IndexFile, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+	//解析生成IndexFile对象
 	return loadIndex(b)
 }
 
@@ -226,23 +228,29 @@ type ChartVersion struct {
 // It indexes only charts that have been packaged (*.tgz).
 //
 // The index returned will be in an unsorted state
+//解析当前目录下的*.tgz文件为chart,并且添加到IndexFile对象中
 func IndexDirectory(dir, baseURL string) (*IndexFile, error) {
+	//返回所有名字匹配*.tgz的文件的路径
 	archives, err := filepath.Glob(filepath.Join(dir, "*.tgz"))
 	if err != nil {
 		return nil, err
 	}
+	//创建新的Index对象
 	index := NewIndexFile()
 	for _, arch := range archives {
 		fname := filepath.Base(arch)
+		//加载<chart>.tgz包为char对象
 		c, err := chartutil.Load(arch)
 		if err != nil {
 			// Assume this is not a chart.
 			continue
 		}
+		//生成hasd数值
 		hash, err := provenance.DigestFile(arch)
 		if err != nil {
 			return index, err
 		}
+		//添加chart到Index对象中
 		index.Add(c.Metadata, fname, baseURL, hash)
 	}
 	return index, nil

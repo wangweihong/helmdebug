@@ -28,8 +28,8 @@ import (
 )
 
 type repoAddCmd struct {
-	name     string
-	url      string
+	name     string //repo名
+	url      string //repo url路径
 	home     helmpath.Home
 	noupdate bool
 
@@ -77,16 +77,20 @@ func (a *repoAddCmd) run() error {
 }
 
 func addRepository(name, url string, home helmpath.Home, certFile, keyFile, caFile string, noUpdate bool) error {
+	//读取$HELMHOME/repository/repositories.yaml文件
 	f, err := repo.LoadRepositoriesFile(home.RepositoryFile())
 	if err != nil {
 		return err
 	}
 
+	//如果指定不更新,但repo名已经存在了
 	if noUpdate && f.Has(name) {
 		return fmt.Errorf("repository name (%s) already exists, please specify a different name", name)
 	}
 
+	//repo-index路径: $HELMHOME/replository/cache/<repo>-index.yaml
 	cif := home.CacheIndex(name)
+
 	c := repo.Entry{
 		Name:     name,
 		Cache:    cif,
@@ -101,6 +105,7 @@ func addRepository(name, url string, home helmpath.Home, certFile, keyFile, caFi
 		return err
 	}
 
+	//下载指定的index
 	if err := r.DownloadIndexFile(home.Cache()); err != nil {
 		return fmt.Errorf("Looks like %q is not a valid chart repository or cannot be reached: %s", url, err.Error())
 	}

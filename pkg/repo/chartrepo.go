@@ -32,13 +32,14 @@ import (
 )
 
 // Entry represents a collection of parameters for chart repository
+// repository/repositories.yaml中每一项的内容
 type Entry struct {
 	Name     string `json:"name"`
-	Cache    string `json:"cache"`
-	URL      string `json:"url"`
+	Cache    string `json:"cache"` //<repo>-index.yaml文件的路径:$HELMHOME/repository/cache/<repo>-index.yaml, 该文件包含repo中chart的信息
+	URL      string `json:"url"`   //repo的url
 	CertFile string `json:"certFile"`
 	KeyFile  string `json:"keyFile"`
-	CAFile   string `json:"caFile"`
+	CAFile   string `json:"caFile"` //
 }
 
 // ChartRepository represents a chart repository
@@ -50,12 +51,15 @@ type ChartRepository struct {
 }
 
 // NewChartRepository constructs ChartRepository
+//创建新的repo
 func NewChartRepository(cfg *Entry, getters getter.Providers) (*ChartRepository, error) {
 	u, err := url.Parse(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid chart URL format: %s", cfg.URL)
 	}
 
+	//根据url构造下载客户端
+	//根据repo的url得到相应协议的下载器
 	getterConstructor, err := getters.ByScheme(u.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("Could not find protocol handler for: %s", u.Scheme)
@@ -197,6 +201,7 @@ func FindChartInRepoURL(repoURL, chartName, chartVersion, certFile, keyFile, caF
 		KeyFile:  keyFile,
 		CAFile:   caFile,
 	}
+	//
 	r, err := NewChartRepository(&c, getters)
 	if err != nil {
 		return "", err
